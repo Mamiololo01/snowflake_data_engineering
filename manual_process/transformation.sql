@@ -1,0 +1,46 @@
+USE ROLE accountadmin;
+
+CREATE WAREHOUSE IF NOT EXISTS compute_wh;
+USE WAREHOUSE compute_wh;
+
+---Create a database and create schema to store the data
+CREATE OR REPLACE DATABASE wages_cpi;
+CREATE OR REPLACE SCHEMA data;
+USE DATABASE wages_cpi;
+USE SCHEMA data;
+
+---Create a table tracking average annual wages and CPI for the USA, between 2012 and 2022
+CREATE OR REPLACE TABLE annual_wages_cpi_usa AS
+SELECT 
+  DATE_TRUNC('year', oecd_timeseries.date) AS year,
+  ROUND(
+    AVG(
+        CASE
+          WHEN oecd_attributes.variable_name ILIKE '%annual wages' THEN oecd_timeseries.value
+          ELSE NULL
+        END
+    )
+  ) AS avg_annual_wages,
+  ROUND (
+    AVG(
+        CASE
+          WHEN bureau_of_labor_statistics_price_attributes.variable_name ILIKE '%CPI' THEN bureau_of_labor_statistics_price_timeseries.value
+          ELSE NULL
+        END
+    )
+  ) AS cpi 
+FROM 
+  Finance_Economics.CYBERSYN.OECD_TIMESERIES oecd_timeseries
+JOIN
+  Finance_Economics.CYBERSYN.OECD_ATTRIBUTES oecd_attributes
+  ON oecd_timeseries.variable = oecd_attributes.variable
+LEFT JOIN
+  Finance_Economics.CYBERSYN.BUREAU_OF_LABOR_STATISTICS_PRICE_TIMESERIES bureau_of_labor_statistics_price_timeseries
+  ON bureau_of_labor_statistics_price_timeseries.variable = bureau_of_labor_statistics_price_attributes.variable
+WHERE
+  (oecd_attributes.variable_name ILIKE '%annual wages'
+  OR bureau_of_labor_statistics_price_attributes.variable_name ILIKE '%CPI')
+  AND oecd_timeseries.geo_id = 'country/USA'
+  AND DATE_TRUNC('year', oecd_timeseries.date) BETWEEN '2012-01-01' AND '2022-12-31'
+  GROUP BY 
+   year;
