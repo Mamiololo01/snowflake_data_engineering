@@ -44,3 +44,30 @@ WHERE
   AND DATE_TRUNC('year', oecd_timeseries.date) BETWEEN '2012-01-01' AND '2022-12-31'
   GROUP BY 
    year;
+
+--- Create a tabke tracking CPI for the USA over the last 3 years, on a monthly basis
+CREATE OR REPLACE TABLE monthly_cpi_usa AS
+SELECT
+  DATE_TRUNC('month', bureau_of_labor_statistics_price_timeseries.date) AS month,
+  ROUND(
+    AVG(
+      CASE
+        WHEN bureau_of_labor_statistics_price_attributes.variable_name ILIKE '%CPI' THEN bureau_of_labor_statistics_price_timeseries.value 
+        ELSE NULL 
+      END 
+    ), 1
+  ) AS avg_cpi
+FROM 
+  Finance_Economics.CYBERSYN.BUREAU_OF_LABOR_STATISTICS_PRICE_TIMESERIES bureau_of_labor_statistics_price_timeseries 
+JOIN
+  Finance_Economics.CYBERSYN.BUREAU_OF_LABOR_STATISTICS_PRICE_TIMESERIES bureau_of_labor_statistics_price_timeseries 
+  ON bureau_of_labor_statistics_price_timeseries.variable = bureau_of_labor_statistics_price_attributes.variable
+WHERE 
+  bureau_of_labor_statistics_price_attributes.variable_name ILIKE 'CPI%'
+  AND bureau_of_labor_statistics_price_timeseries.geo_id = 'country/USA'
+  AND DATE_TRUNC('month', bureau_of_labor_statistics_price_timeseries.date) BETWEEN DATEADD( year, -3, CURRENT_DATE) AND CURRENT_DATE 
+GROUP BY
+  month;
+
+SELECT * FROM annual_wages_cpi_usa;
+SELECT * FROM monthly_cpi_usa;
